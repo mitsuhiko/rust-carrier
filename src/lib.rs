@@ -4,10 +4,14 @@
 //!
 //! Essentially this code:
 //!
-//! ```rust,ignore
+//! ```rust
+//! # #[macro_use] extern crate carrier;
+//! # fn foo() -> Option<i32> { Some(42) }
+//! # fn main() {
 //! fn foo_as_string() -> Option<String> {
-//!     Some(try!(foo()).into())
+//!     Some(try!(foo()).to_string())
 //! }
+//! # }
 //! ```
 //! 
 //! Converts into this:
@@ -29,13 +33,24 @@
 //! # What are Completions
 //!
 //! We refer to a `Completion` when we talk about the outcome of a computation
-//! (like the return value of a function) which might might fail.  Failure
-//! refers to an abrupt and exceptional result.
+//! (like the return value of a function) which can either produce a value or
+//! exit abruptly because of a exceptional condition (typically a failure).
 //!
 //! We refer to these two cases as a `Value` return (for the successful case)
-//! or an `Abrupt` return for the exceptional one.
+//! or an `Abrupt` return for the exceptional one.  The `Value` case holds
+//! just the result of the computation as such, the `Abrupt` case typically
+//! holds an object such as a `Result` or `Option` which is set to the
+//! case which would fail on `unwrap()`.  For instance `Result::Err` or
+//! `Option::None`.
 //!
-//! # Completion Conversions
+//! Because completions are typically used with the `try!` macro which
+//! issues an early return, the implementations for `IntoCompletion`
+//! typically heavily depend on type inference.  As an example the
+//! implementation for handling `Option<U>` will return an `Option<V>`
+//! where `V` is entirely unconstraint.  This causes no issue since
+//! the only return value for `Option<V>` that can be produced is `None`.
+//!
+//! # Completion Rules
 //!
 //! When the `try!` macro is invoked it will attempt to convert the value
 //! provided into a completion appropriate for the return value of the
@@ -43,36 +58,32 @@
 //! expression or if it encounters exceptional circumstances the abrupt
 //! value will be returned from the function.
 //!
-//! ## Builtin Conversions
+//! ## Builtin Rules
 //!
 //! The following basic transitions are provided automatically:
 //!
-//! ### `Result<T, E>` -> `Result<T, F>`
+//! `Result<T, E>` -> `Result<T, F>`:
+//! > This is the most common completion.  It is used to propagate an
+//! > error wrapped in a result upwards.  Because this conversion is
+//! > using `E: Into<F>` errors can automatically be converted if
+//! > necessary.
 //!
-//! This is the most common completion.  It is used to propagate an
-//! error wrapped in a result upwards.  Because this conversion is
-//! using `E: Into<F>` errors can automatically be converted if
-//! necessary.
+//! `Result<T, E>` -> `Option<Result<T, F>>`:
+//! > This is a special form of the former conversion which simplifies
+//! > the handling of results in iterators.  Iterators are a common
+//! > feature in Rust and when you are dealing with iterators that
+//! > might fail, typically the items of the iterator are results
+//! > themselves.
 //!
-//! ### `Result<T, E>` -> `Option<Result<T, F>>`
+//! `Option<U>` -> `Option<V>`:
+//! > This conversion permits the propagation of `None` from one option
+//! > type to another.
 //!
-//! This is a special form of the former conversion which simplifies
-//! the handling of results in iterators.  Iterators are a common
-//! feature in Rust and when you are dealing with iterators that
-//! might fail, typically the items of the iterator are results
-//! themselves.
+//! `*const T` -> `Option<U>` and `*mut T` -> `Option<U>`:
+//! > For the raw pointer versions the null pointer is converted into
+//! > `None` whereas all other values are unwrapped unchanged.
 //!
-//! ### `Option<U>` -> `Option<V>`
-//!
-//! This conversion permits the propagation of `None` from one option
-//! type to another.
-//!
-//! ### `*const T` -> `Option<U>` and `*mut T` -> `Option<U>`
-//!
-//! For the raw pointer versions the null pointer is converted into
-//! `None` whereas all other values are unwrapped unchanged.
-//!
-//! ## Custom Conversions
+//! ## Custom Rules
 //!
 //! If you have a similar object you want to convert automatically
 //! with the `try!` macro you can implement the `IntoCompletion`
@@ -87,8 +98,6 @@
 //! #     fn status(&self) -> i32 { 200 }
 //! # }
 //! # enum ErrorKind { RequestFailed(i32) }
-//! # struct Error;
-//! # impl From<ErrorKind> for Error { fn from(_: ErrorKind) -> Error { Error } }
 //! # use carrier::{Completion, IntoCompletion};
 //!
 //! impl<E, T> IntoCompletion<Result<T, E>> for Response
@@ -101,11 +110,17 @@
 //!             Completion::Value(self)
 //!         } else {
 //!             Completion::Abrupt(Err(ErrorKind::RequestFailed(
-//!                 self.status()).into()).into())
+//!                 self.status()).into()))
 //!         }
 //!     }
 //! }
 //! ```
+//!
+//! Note how the completion rule returns a `Result<T, E>` where
+//! `E: From<ErrorKind>` instead of returning a `Result<T, ErrorKind>`.
+//! This allows the rule to be utilized in a function that returns a
+//! different kind of error that however is compatible to the `ErrorKind`
+//! of that library.
 
 /// This macro performs error handling through the completion system.
 ///

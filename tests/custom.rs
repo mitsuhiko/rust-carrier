@@ -33,7 +33,7 @@ fn test_http_example() {
     }
 
     fn http_test(status: i32) -> Result<(), Error> {
-        let resp = try!(Response { status: status });
+        let _resp = try!(Response { status: status });
         Ok(())
     }
 

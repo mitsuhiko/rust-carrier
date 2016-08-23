@@ -6,13 +6,15 @@
 //!
 //! ```rust,ignore
 //! fn foo_as_string() -> Option<String> {
-//!     Some(try!(foo()).to_string())
+//!     Some(try!(foo()).into())
 //! }
 //! ```
 //! 
 //! Converts into this:
 //!
-//! ```rust,ignore
+//! ```rust
+//! # use carrier::{Completion, IntoCompletion};
+//! # fn foo() -> Option<i32> { Some(42) }
 //! fn foo_as_string() -> Option<String> {
 //!     Some(match IntoCompletion::into_completion(foo()) {
 //!         Completion::Value(x) => x,
@@ -78,16 +80,28 @@
 //! implements an HTTP response object and you want to convert it
 //! into a `Result` in case the status code is not 200:
 //!
-//! ```rust,ignore
-//! impl<T, Error> IntoCompletion<Result<T, Error>> for Response {
+//! ```rust
+//! # struct Response;
+//! # impl Response {
+//! #     fn is_successful(&self) -> bool { true }
+//! #     fn status(&self) -> i32 { 200 }
+//! # }
+//! # enum ErrorKind { RequestFailed(i32) }
+//! # struct Error;
+//! # impl From<ErrorKind> for Error { fn from(_: ErrorKind) -> Error { Error } }
+//! # use carrier::{Completion, IntoCompletion};
+//!
+//! impl<E> IntoCompletion<Result<Response, E>> for Response
+//!     where E: From<ErrorKind>
+//! {
 //!     type Value = Response;
 //! 
-//!     fn into_completion(self) -> Completion<Response, Result<T, E>> {
+//!     fn into_completion(self) -> Completion<Response, Result<Response, E>> {
 //!         if self.is_successful() {
 //!             Completion::Value(self)
 //!         } else {
 //!             Completion::Abrupt(Err(ErrorKind::RequestFailed(
-//!                 self.status()).into()))
+//!                 self.status()).into()).into())
 //!         }
 //!     }
 //! }

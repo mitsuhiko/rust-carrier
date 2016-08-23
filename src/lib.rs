@@ -91,12 +91,12 @@
 //! # impl From<ErrorKind> for Error { fn from(_: ErrorKind) -> Error { Error } }
 //! # use carrier::{Completion, IntoCompletion};
 //!
-//! impl<E> IntoCompletion<Result<Response, E>> for Response
+//! impl<E, T> IntoCompletion<Result<T, E>> for Response
 //!     where E: From<ErrorKind>
 //! {
 //!     type Value = Response;
 //! 
-//!     fn into_completion(self) -> Completion<Response, Result<Response, E>> {
+//!     fn into_completion(self) -> Completion<Response, Result<T, E>> {
 //!         if self.is_successful() {
 //!             Completion::Value(self)
 //!         } else {

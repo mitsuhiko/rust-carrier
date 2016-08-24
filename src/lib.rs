@@ -30,6 +30,14 @@
 //! The `IntoCompletion` trait is implemented for various types to allow
 //! interoperability between different result types.
 //!
+//! When the `try!` macro is invoked it will attempt to convert the value
+//! provided into a completion appropriate for the return value of the
+//! function.  It will "unwrap" the success value and return it from the
+//! expression or if it encounters exceptional circumstances the abrupt
+//! value will be returned from the function.  In a way this can be seen
+//! as a non-panicking version of `Option::unwrap()` and `Result::unwrap()`
+//! just significantly more powerful.
+//!
 //! # What are Completions
 //!
 //! We refer to a `Completion` when we talk about the outcome of a computation
@@ -52,11 +60,9 @@
 //!
 //! # Completion Rules
 //!
-//! When the `try!` macro is invoked it will attempt to convert the value
-//! provided into a completion appropriate for the return value of the
-//! function.  It will "unwrap" the success value and return it from the
-//! expression or if it encounters exceptional circumstances the abrupt
-//! value will be returned from the function.
+//! Most of the power of the `try!` macro is provided by the
+//! `IntoCompletion` trait which defines the transition rules for how
+//! to create a completion from `A` to `B`.
 //!
 //! ## Builtin Rules
 //!
